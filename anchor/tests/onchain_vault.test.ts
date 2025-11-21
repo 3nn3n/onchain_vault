@@ -44,6 +44,9 @@ escrow = await createAccount(
   wallet.publicKey
 );
 
+console.log("Escrow Account:", escrow.toBase58());
+console.log("Mint Address:", mint.toBase58());
+
 //
 // 3️⃣ Derive vault PDA
 //
@@ -145,10 +148,9 @@ const [userDepositPda] =
 //
     const ix = await program.methods
       .deposit(new anchor.BN(1000))
-      .accountsPartial({
+      .accounts({
         user: wallet.publicKey,
-        vault: vaultPda,
-        userDeposit: userDepositPda,
+        mint,
         escrow,
         userTokenAccount,
       })

@@ -50,9 +50,11 @@ pub struct Deposit<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
+    pub mint: Account<'info, Mint>,
+
     #[account(
         mut,
-        seeds = [b"vault", vault.authority.as_ref(), vault.mint.as_ref()],
+        seeds = [b"vault", user.key().as_ref(), mint.key().as_ref()],
         bump = vault.bump,
     )]
     pub vault: Account<'info, Vault>,

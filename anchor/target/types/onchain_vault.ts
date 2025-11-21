@@ -32,6 +32,9 @@ export type OnchainVault = {
           "signer": true
         },
         {
+          "name": "mint"
+        },
+        {
           "name": "vault",
           "writable": true,
           "pda": {
@@ -48,13 +51,11 @@ export type OnchainVault = {
               },
               {
                 "kind": "account",
-                "path": "vault.authority",
-                "account": "vault"
+                "path": "user"
               },
               {
                 "kind": "account",
-                "path": "vault.mint",
-                "account": "vault"
+                "path": "mint"
               }
             ]
           }
