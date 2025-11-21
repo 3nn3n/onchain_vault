@@ -29,6 +29,10 @@
           "name": "mint"
         },
         {
+          "name": "authority",
+          "signer": true
+        },
+        {
           "name": "vault",
           "writable": true,
           "pda": {
@@ -45,7 +49,7 @@
               },
               {
                 "kind": "account",
-                "path": "user"
+                "path": "authority"
               },
               {
                 "kind": "account",

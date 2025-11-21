@@ -151,9 +151,10 @@ const [userDepositPda] =
       .accounts({
         user: wallet.publicKey,
         mint,
-        escrow,
+        authority: wallet.publicKey,
         userTokenAccount,
-      })
+        escrow,
+        })
       .instruction();const bh = await provider.connection.getLatestBlockhash();
 
 const tx = new anchor.web3.Transaction({
