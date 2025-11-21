@@ -6,4 +6,4 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from './onchain-vault';
+export * from './onchain_vault';
