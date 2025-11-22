@@ -7,6 +7,10 @@ createMint,
 createAccount,
 mintTo,
 getAccount,
+TOKEN_PROGRAM_ID,
+getMinimumBalanceForRentExemptAccount,
+ACCOUNT_SIZE,
+createInitializeAccountInstruction,
 } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 
@@ -21,6 +25,7 @@ let mint: PublicKey;
 let escrow: PublicKey;
 let vaultPda: PublicKey;
 let vaultBump: number;
+let userTokenAccount: PublicKey;
 
 beforeAll(async () => {
 //
@@ -35,19 +40,6 @@ null,
 );
 
 //
-// 2️⃣ Create escrow token account owned by user
-//
-escrow = await createAccount(
-  provider.connection,
-  wallet.payer,
-  mint,
-  wallet.publicKey
-);
-
-console.log("Escrow Account:", escrow.toBase58());
-console.log("Mint Address:", mint.toBase58());
-
-//
 // 3️⃣ Derive vault PDA
 //
 [vaultPda, vaultBump] =
@@ -58,6 +50,44 @@ console.log("Mint Address:", mint.toBase58());
       mint.toBuffer(),
     ],
     program.programId
+  );
+
+//
+// 2️⃣ Create escrow token account owned by vault PDA (using raw keypair since PDA is off-curve)
+//
+const escrowKeypair = anchor.web3.Keypair.generate();
+const lamports = await getMinimumBalanceForRentExemptAccount(provider.connection);
+
+const createAccountIx = anchor.web3.SystemProgram.createAccount({
+  fromPubkey: wallet.publicKey,
+  newAccountPubkey: escrowKeypair.publicKey,
+  lamports,
+  space: ACCOUNT_SIZE,
+  programId: TOKEN_PROGRAM_ID,
+});
+
+const initAccountIx = createInitializeAccountInstruction(
+  escrowKeypair.publicKey,
+  mint,
+  vaultPda,
+  TOKEN_PROGRAM_ID
+);
+
+const tx = new anchor.web3.Transaction().add(createAccountIx, initAccountIx);
+await provider.sendAndConfirm(tx, [escrowKeypair]);
+
+escrow = escrowKeypair.publicKey;
+
+console.log("Escrow Account:", escrow.toBase58());
+console.log("Mint Address:", mint.toBase58());
+  const userTokenAccountKeypair = anchor.web3.Keypair.generate();
+    
+  userTokenAccount = await createAccount(
+     provider.connection,
+     wallet.payer,
+     mint,
+     wallet.publicKey,
+     userTokenAccountKeypair
   );
 
 
@@ -109,15 +139,7 @@ expect(vaultAccount.escrow.toBase58()).toEqual(escrow.toBase58());
     //
     // 1️⃣ Create user wallet token account
     //
-    const userTokenAccountKeypair = anchor.web3.Keypair.generate();
     
-    const userTokenAccount = await createAccount(
-      provider.connection,
-      wallet.payer,
-      mint,
-      wallet.publicKey,
-      userTokenAccountKeypair
-    );
 //
 // 2️⃣ Mint some tokens to user account
 //
@@ -151,11 +173,12 @@ const [userDepositPda] =
       .accounts({
         user: wallet.publicKey,
         mint,
-        authority: wallet.publicKey,
-        userTokenAccount,
         escrow,
-        })
-      .instruction();const bh = await provider.connection.getLatestBlockhash();
+        userTokenAccount,
+      })
+      .instruction();
+
+    const bh = await provider.connection.getLatestBlockhash();
 
 const tx = new anchor.web3.Transaction({
   feePayer: wallet.publicKey,
@@ -191,4 +214,70 @@ expect(Number(escrowAccountData.amount)).toEqual(1000);
 
 
 });
+
+it("Withdraw tokens", async () => {
+  //
+  // Derive UserDeposit PDA
+  //
+  const [userDepositPda] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("user_deposit"),
+      wallet.publicKey.toBuffer(),
+      vaultPda.toBuffer(),
+    ],
+    program.programId
+  );
+
+  const ix = await program.methods
+    .withdraw(new anchor.BN(300))
+    .accounts({
+      user: wallet.publicKey,
+      mint,
+      escrow,
+      userTokenAccount,
+    })
+    .instruction();
+
+  const bh = await provider.connection.getLatestBlockhash();
+
+  const tx = new anchor.web3.Transaction({
+    feePayer: wallet.publicKey,
+    blockhash: bh.blockhash,
+    lastValidBlockHeight: bh.lastValidBlockHeight,
+  }).add(ix);
+
+  const sig = await anchor.web3.sendAndConfirmTransaction(
+    provider.connection,
+    tx,
+    [wallet.payer]
+  );
+
+  console.log("Withdraw Signature:", sig);
+
+  //
+  // Verify UserDeposit decreased
+  //
+  const userDepositAcct = await program.account.userDeposit.fetch(userDepositPda);
+  expect(Number(userDepositAcct.amount)).toEqual(700); // 1000 - 300
+
+  //
+  // Verify escrow balance decreased
+  //
+  const escrowAccountData = await getAccount(
+    provider.connection,
+    escrow
+  );
+  expect(Number(escrowAccountData.amount)).toEqual(700);
+
+  //
+  // Verify user token account balance increased
+  //
+  const userAccountData = await getAccount(
+    provider.connection,
+    userTokenAccount
+  );
+  expect(Number(userAccountData.amount)).toEqual(300);
+});
+
+
 });
