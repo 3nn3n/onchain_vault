@@ -136,13 +136,7 @@ expect(vaultAccount.escrow.toBase58()).toEqual(escrow.toBase58());
 });
 
   it("Deposit tokens", async () => {
-    //
-    // 1️⃣ Create user wallet token account
-    //
-    
-//
-// 2️⃣ Mint some tokens to user account
-//
+
 await mintTo(
   provider.connection,
   wallet.payer,
@@ -152,9 +146,6 @@ await mintTo(
   1000
 );
 
-//
-// Derive UserDeposit PDA
-//
 const [userDepositPda] =
   PublicKey.findProgramAddressSync(
     [
@@ -165,9 +156,7 @@ const [userDepositPda] =
     program.programId
   );
 
-//
-// 3️⃣ Make deposit instruction
-//
+
     const ix = await program.methods
       .deposit(new anchor.BN(1000))
       .accounts({
@@ -194,17 +183,13 @@ const sig = await anchor.web3.sendAndConfirmTransaction(
 
 console.log("Deposit Signature:", sig);
 
-//
-// 4️⃣ Read UserDeposit
-//
+
 const userDepositAcct =
   await program.account.userDeposit.fetch(userDepositPda);
 
 expect(Number(userDepositAcct.amount)).toEqual(1000);
 
-//
-// 5️⃣ Check escrow balance increased
-//
+
 const escrowAccountData = await getAccount(
   provider.connection,
   escrow
@@ -216,9 +201,7 @@ expect(Number(escrowAccountData.amount)).toEqual(1000);
 });
 
 it("Withdraw tokens", async () => {
-  //
-  // Derive UserDeposit PDA
-  //
+  
   const [userDepositPda] = PublicKey.findProgramAddressSync(
     [
       Buffer.from("user_deposit"),
@@ -254,24 +237,18 @@ it("Withdraw tokens", async () => {
 
   console.log("Withdraw Signature:", sig);
 
-  //
-  // Verify UserDeposit decreased
-  //
+  
   const userDepositAcct = await program.account.userDeposit.fetch(userDepositPda);
-  expect(Number(userDepositAcct.amount)).toEqual(700); // 1000 - 300
+  expect(Number(userDepositAcct.amount)).toEqual(700); 
 
-  //
-  // Verify escrow balance decreased
-  //
+  
   const escrowAccountData = await getAccount(
     provider.connection,
     escrow
   );
   expect(Number(escrowAccountData.amount)).toEqual(700);
 
-  //
-  // Verify user token account balance increased
-  //
+  
   const userAccountData = await getAccount(
     provider.connection,
     userTokenAccount
